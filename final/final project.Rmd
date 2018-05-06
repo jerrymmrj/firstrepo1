@@ -1,0 +1,113 @@
+---
+title: "Final project"
+author: "Ruijie Ma"
+date: "2018/5/6"
+output: pdf_document
+---
+## datacleaning
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(shiny)
+library(ggplot2)
+library(tidyverse)
+library(shinythemes)
+library(shinydashboard)
+library(curl)
+library(jsonlite)
+
+url<-'https://www.alphavantage.co/query?function=DIGITAL_CURRENCY_DAILY&symbol=BTC&market=CNY&apikey=7UZIED5JPZSAQMPT'
+
+data1 <- read_json(url,format="jsonl")
+
+thedata<-lapply(data1$`Time Series (Digital Currency Daily)`,unlist)
+
+thedata<-as.data.frame(thedata)
+
+thedata<-t(thedata)
+
+thedata<-thedata[,-c(2,4,6,8,10)]
+
+col_names<-colnames(thedata)
+
+col_names<-unlist(lapply(col_names,function(x){
+  temp<-unlist(strsplit(x,"[.]"))
+  temp[2]
+}))
+
+col_names<-gsub(" ","",col_names)
+
+col_names<-gsub("[(]","_",col_names)
+
+col_names<-gsub("[)]","",col_names)
+
+time<-rownames(thedata)
+
+time<-gsub("X","",time)
+
+time<-as.Date(gsub("[.]","-",time),format="%Y-%m-%d")
+mydata<-data.frame(thedata)
+
+names(mydata)<-col_names
+
+mydata$time<-time
+
+mydata[,1:5]<-apply(mydata[,1:5],1,as.numeric)
+```
+```
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+ui <- fluidPage(theme = shinytheme("united"),
+                titlePanel("Bitcoin price"),
+                
+                navbarPage(
+                  # theme = "cerulean",  # <--- To use a theme, uncomment this
+                  "Myapp",
+                  tabPanel("Part1",
+                           sidebarPanel(
+                             selectInput("var", 
+                                         label = "Choose the varaible to display",
+                                         choices = "",
+                                         selected = ""),
+                             sliderInput("range", "Time interval:",min =as.Date("2014-04-01"), 
+                                         max = as.Date("2018-05-02"), value =c(as.Date("2018-03-02"),as.Date("2018-05-02")))),
+                           mainPanel(
+                             tabsetPanel(type = "tabs",
+                                         tabPanel("interval", plotOutput("plot_11"),h4(' In this project, I have used skills that I learnt from this class including tidyverse,ggplot,shinny app.The graoh shows my study of digital currency, the Bitcoin.In my study, I focus on the influence of government regulation on Bitcoin price. I consider that government regulation would influence the price of Bitcoin. I use the API from Alphavantage which is an api about information of Bitcoin price in CNY, the Chinese RMB. To confirm my opinion, my example is about South Korean???s regulation in 2018. The South Korean announce in January that they have closed two of the biggest digital currency exchange and they would prohibit the trade of digital currency in their county in the future. As we can observe from my graph which has price of bitcoin on the Y axis and data on the X axis. The open price of Bitcoin breaks its prior bottom and it got a new low. Therefore I confirm that the regulation of government has influence on the price of Bitcoins.'))
+                             ))
+                  )
+                )
+)
+
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+server <- function(input, output,session) {
+  
+  
+  updateSliderInput(session,"range", "Time interval:",min =time[length(time)], 
+                    max =time[1], value = c(time[50],time[1]))
+  
+  updateSelectInput(session, "var", 
+                    label = "Choose the varaible to display",
+                    choices = col_names,
+                    selected = "open_CNY")
+  
+  thedata<-reactive({
+    date1<-input$range[1]
+    date2<-input$range[2]
+    select_col<-input$var
+    temp<-subset(mydata,mydata$time>=date1&mydata$time<=date2)
+    temp
+  })
+  
+  output$plot_11<-renderPlot({
+    if(!is.null(thedata())){
+      ggplot(thedata(),aes_string(x='time',y=input$var))+geom_line()
+    }
+  })
+}
+```
